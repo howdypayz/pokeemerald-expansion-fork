@@ -1483,6 +1483,7 @@ static u8 TrySaveFriendsSecretBase(struct SecretBase *secretBase, u32 version, u
 // they won't be forgotten during record mixing.
 static void SortSecretBasesByRegistryStatus(void)
 {
+    #if SECRET_BASES_COUNT > 1
     u8 i;
     u8 j;
     struct SecretBase *secretBases;
@@ -1500,6 +1501,7 @@ static void SortSecretBasesByRegistryStatus(void)
             }
         }
     }
+    #endif
 }
 
 // Used to save a record mixing friends' bases other than their own
