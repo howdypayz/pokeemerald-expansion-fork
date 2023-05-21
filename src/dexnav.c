@@ -12,6 +12,7 @@
 #include "field_effect.h"
 #include "field_effect_helpers.h"
 #include "field_message_box.h"
+#include "field_control_avatar.h"
 #include "field_player_avatar.h"
 #include "field_screen_effect.h"
 #include "fieldmap.h"
@@ -26,6 +27,7 @@
 #include "menu.h"
 #include "menu_helpers.h"
 #include "metatile_behavior.h"
+#include "constants/metatile_behaviors.h"
 #include "overworld.h"
 #include "palette.h"
 #include "party_menu.h"
@@ -103,6 +105,13 @@ struct DexNavSearch
     u8 isHiddenMon:1;
     u8 unk:6;
     u16 palBuffer[16];
+
+    s16 scanLeftX;
+	s16 scanTopY;
+	bool8 reachableTiles[16][16];
+	bool8 impassibleTiles[16][16];
+	s16 scanRightX;
+	s16 scanBottomY;
 };
 
 struct DexNavGUI
@@ -143,7 +152,8 @@ static u8 DexNavTryGenerateMonLevel(u16 species, u8 environment);
 static u8 GetEncounterLevelFromMapData(u16 species, u8 environment);
 static void CreateDexNavWildMon(u16 species, u8 potential, u8 level, u8 abilityNum, u16 item, u16* moves);
 static u8 GetPlayerDistance(s16 x, s16 y);
-static u8 DexNavPickTile(u8 environment, u8 xSize, u8 ySize, bool8 smallScan);
+static bool8 PickTileScreen(u8 environment, u8 widthX, u8 heightY, s16 *xBuff, s16 *yBuff, bool8 mustFindTile);
+static bool8 DexNavPickTile(u8 environment, u8 xSize, u8 ySize, bool8 mustFindTile);
 static void DexNavProximityUpdate(void);
 static void DexNavDrawIcons(void);
 static void DexNavUpdateSearchWindow(u8 proximity, u8 searchLevel);
@@ -602,110 +612,184 @@ static void DexNavProximityUpdate(void)
     sDexNavSearchDataPtr->proximity = GetPlayerDistance(sDexNavSearchDataPtr->tileX, sDexNavSearchDataPtr->tileY);
 }
 
-//Pick a specific tile based on environment
-static bool8 DexNavPickTile(u8 environment, u8 areaX, u8 areaY, bool8 smallScan)
+static bool8 IsEncounterTile(s16 x, s16 y, u8 environment)
 {
-    // area of map to cover starting from camera position {-7, -7}
-    s16 topX = gSaveBlock1Ptr->pos.x - SCANSTART_X + (smallScan * 5);
-    s16 topY = gSaveBlock1Ptr->pos.y - SCANSTART_Y + (smallScan * 5);
-    s16 botX = topX + areaX;
-    s16 botY = topY + areaY;
-    u8 i;
-    bool8 nextIter;
-    u8 scale = 0;
-    u8 weight = 0;
-    u8 currMapType = GetCurrentMapType();
-    u8 tileBehaviour;
-    u8 tileBuffer = 2;
-    
-    // loop through every tile in area and evaluate
-    while (topY < botY)
-    {
-        while (topX < botX)
-        {
-            tileBehaviour = MapGridGetMetatileBehaviorAt(topX, topY);
-            
-            //gSpecialVar_0x8005 = tileBehaviour;
-            
-            //Check for objects
-            nextIter = FALSE;
-            if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_BIKE))
-                tileBuffer = SNEAKING_PROXIMITY + 3;
-            else if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_DASH))
-                tileBuffer = SNEAKING_PROXIMITY + 1;
-            
-            if (GetPlayerDistance(topX, topY) <= tileBuffer)
-            {
-                // tile too close to player
-                topX++;
-                continue;
-            }
-            
-            for (i = 0; i < OBJECT_EVENTS_COUNT; i++)
-            {
-                if (gObjectEvents[i].currentCoords.x == topX && gObjectEvents[i].currentCoords.y == topY)
-                {
-                    // cannot be on a tile where an object exists
-                    nextIter = TRUE;
-                    break;
-                }
-            }
-            
-            if (nextIter)
-            {
-                topX++;
-                continue;
-            }
-            
-            switch (environment)
-            {
-            case ENCOUNTER_TYPE_LAND:
-                if (MetatileBehavior_IsLandWildEncounter(tileBehaviour))
-                {
-                    if (currMapType == MAP_TYPE_UNDERGROUND)
-                    { // inside (cave)
-                        if (IsElevationMismatchAt(gObjectEvents[gPlayerAvatar.spriteId].currentElevation, topX, topY))
-                            break; //occurs at same z coord
-                        
-                        scale = 440 - (smallScan * 200) - (GetPlayerDistance(topX, topY) / 2)  - (2 * (topX + topY));
-                        weight = ((Random() % scale) < 1) && !MapGridGetCollisionAt(topX, topY);
-                    }
-                    else
-                    { // outdoors: grass
-                        scale = 100 - (GetPlayerDistance(topX, topY) * 2);
-                        weight = (Random() % scale <= 5) && !MapGridGetCollisionAt(topX, topY);
-                    }
-                }
-                break;
-            case ENCOUNTER_TYPE_WATER:
-                if (MetatileBehavior_IsSurfableWaterOrUnderwater(tileBehaviour))
-                {
-                    u8 scale = 320 - (smallScan * 200) - (GetPlayerDistance(topX, topY) / 2);
-                    if (IsElevationMismatchAt(gObjectEvents[gPlayerAvatar.spriteId].currentElevation, topX, topY))
-                        break;
+	u32 tileBehavior = MapGridGetMetatileBehaviorAt(x, y);
+	if (MetatileBehavior_IsStairs(tileBehavior))
+		return FALSE; //Can't encounter on stairs because it's wonky on side stairs
 
-                    weight = (Random() % scale <= 1) && !MapGridGetCollisionAt(topX, topY);
-                }
-                break;
-            default:
-                break;
-            }
-            
-            if (weight > 0)
-            {
-                sDexNavSearchDataPtr->tileX = topX;
-                sDexNavSearchDataPtr->tileY = topY;
-                return TRUE;
-            }
-            
-            topX++;
-        }
-        
-        topY++;
-        topX = gSaveBlock1Ptr->pos.x - SCANSTART_X + (smallScan * 5);
+	if (GetCoordEventScriptAtPosition(&gMapHeader, x - 7, y - 7, MapGridGetElevationAt(x, y)))
+		return FALSE; //Better not to start an enounter on spot that a script should be activated on
+
+    if (environment == ENCOUNTER_TYPE_LAND) {
+        return MetatileBehavior_IsLandWildEncounter(tileBehavior);
+    }
+    return MetatileBehavior_IsWaterWildEncounter(tileBehavior);
+}
+
+static bool8 CanTileBeReachedFromTile(s16 oldX, s16 oldY, s16 newX, s16 newY) //Eg. is there edge between two nodes
+{
+	s16 newXInGrid = newX - sDexNavSearchDataPtr->scanLeftX;
+	s16 newYInGrid = newY - sDexNavSearchDataPtr->scanTopY;
+	u8 behaviour = MapGridGetMetatileBehaviorAt(newX, newY);
+
+	if (sDexNavSearchDataPtr->reachableTiles[newYInGrid][newXInGrid] //Tile is already reachable so it doesn't need to be reached again
+	    || sDexNavSearchDataPtr->impassibleTiles[newYInGrid][newXInGrid]) //Tile can't be walked on anyway
+    {
+		return FALSE;
     }
 
-    return FALSE;
+	if (MapGridGetCollisionAt(newX, newY) > 0 // Impassable
+        || behaviour == MB_MUDDY_SLOPE //Can't actually make it over this tile
+        || behaviour == MB_CRACKED_FLOOR //Can't actually make it over this tile
+        || (newX - 7) >= gMapHeader.mapLayout->width //DexNav scan stops when leaving the map
+        || (newX - 7) < 0
+        || (newY - 7) >= gMapHeader.mapLayout->height
+        || (newY - 7) < 0)
+	{
+		sDexNavSearchDataPtr->impassibleTiles[newYInGrid][newXInGrid] = TRUE;
+		return FALSE;
+	}
+
+	return !IsElevationMismatchAt(MapGridGetElevationAt(oldX, oldY), newX, newY); //Must be on same elevation
+}
+
+//Only called if a position is actually reachable
+//Not a function to limit necessary function calls
+//The x and y coords are spliced together to make the array writes faster than by writing manually to a Coords16 array
+#define EnqueuePos(queue, queueCount, x, y)                                                          \
+{                                                                                                    \
+	((u32*) queue)[queueCount] = (x) | ((y) << 16);                                                  \
+	sDexNavSearchDataPtr->reachableTiles[y - sDexNavSearchDataPtr->scanTopY][x - sDexNavSearchDataPtr->scanLeftX] = TRUE; \
+}
+
+static void UpdateReachableTiles(s16 startX, s16 startY, u32 totalLengthX, u32 totalLengthY)
+{
+	u32 currQueueIndex = 0;
+	u32 queueCount = 1;
+	struct Coords16 queue[totalLengthX * totalLengthY];
+	memset(queue, 0x0, sizeof(queue));
+	queue[0].x = startX; //Because they're set here and not in EnqueuePos, the player's tile isn't considered (intended)
+	queue[0].y = startY;
+
+	while (currQueueIndex < queueCount)
+	{
+		s16 x = queue[currQueueIndex].x;
+		s16 y = queue[currQueueIndex].y;
+
+		if (x - 1 >= sDexNavSearchDataPtr->scanLeftX
+		&& CanTileBeReachedFromTile(x, y, x - 1, y))
+        {
+			EnqueuePos(queue, queueCount++, x - 1, y);
+        }
+
+		if (x + 1 <= sDexNavSearchDataPtr->scanRightX
+		&& CanTileBeReachedFromTile(x, y, x + 1, y))
+        {
+			EnqueuePos(queue, queueCount++, x + 1, y);
+        }
+
+		if (y - 1 >= sDexNavSearchDataPtr->scanTopY
+		&& CanTileBeReachedFromTile(x, y, x, y - 1))
+        {
+			EnqueuePos(queue, queueCount++, x, y - 1);
+        }
+
+		if (y + 1 <= sDexNavSearchDataPtr->scanBottomY
+		&& CanTileBeReachedFromTile(x, y, x, y + 1))
+        {
+			EnqueuePos(queue, queueCount++, x, y + 1);
+        }
+
+		++currQueueIndex;
+	}
+}
+
+static bool8 PickTileScreen(u8 environment, u8 widthX, u8 heightY, s16 *xBuff, s16 *yBuff, bool8 mustFindTile)
+{
+	u32 i, j, totalLengthX, totalLengthY, tileCount, playerX, playerY;
+    u16 rate;
+    struct Coords16* pos;
+	struct Coords16 availableTiles[totalLengthX * totalLengthY];
+	playerX = gSaveBlock1Ptr->pos.x + 7;
+	playerY = gSaveBlock1Ptr->pos.y + 7;
+
+	sDexNavSearchDataPtr->scanLeftX = playerX - widthX;
+	sDexNavSearchDataPtr->scanTopY = playerY - heightY;
+	sDexNavSearchDataPtr->scanRightX = playerX + widthX;
+	sDexNavSearchDataPtr->scanBottomY = playerY + heightY;
+	totalLengthX = sDexNavSearchDataPtr->scanRightX - sDexNavSearchDataPtr->scanLeftX;
+	totalLengthY = sDexNavSearchDataPtr->scanBottomY - sDexNavSearchDataPtr->scanTopY;
+
+	memset(availableTiles, 0x0, sizeof(availableTiles));
+	memset(sDexNavSearchDataPtr->reachableTiles, 0x0, sizeof(sDexNavSearchDataPtr->reachableTiles)); //From previous scans if necessary (eg. in caves and on water)
+	memset(sDexNavSearchDataPtr->impassibleTiles, 0x0, sizeof(sDexNavSearchDataPtr->impassibleTiles));
+
+	//First remove any tiles from consideration that have NPCs on them
+	for (i = 0; i < OBJECT_EVENTS_COUNT; ++i)
+	{
+		if (gObjectEvents[i].active
+		&& gObjectEvents[i].currentCoords.x >= sDexNavSearchDataPtr->scanLeftX
+		&& gObjectEvents[i].currentCoords.x <= sDexNavSearchDataPtr->scanRightX
+		&& gObjectEvents[i].currentCoords.y >= sDexNavSearchDataPtr->scanTopY
+		&& gObjectEvents[i].currentCoords.y <= sDexNavSearchDataPtr->scanBottomY)
+		{
+			s16 x = gObjectEvents[i].currentCoords.x - sDexNavSearchDataPtr->scanLeftX;
+			s16 y = gObjectEvents[i].currentCoords.y - sDexNavSearchDataPtr->scanTopY;
+			sDexNavSearchDataPtr->impassibleTiles[y][x] = TRUE;
+		}
+	}
+
+	//Then determine the tiles that can be reached from the player's current position
+	UpdateReachableTiles(playerX, playerY, totalLengthX, totalLengthY);
+
+	//Of the tiles that can be reached, add the encounter tiles to a list
+	for (i = 0, tileCount = 0; i < totalLengthY; ++i)
+	{
+		for (j = 0; j < totalLengthX; ++j)
+		{
+			if (sDexNavSearchDataPtr->reachableTiles[i][j])
+			{
+				s16 x = sDexNavSearchDataPtr->scanLeftX + j;
+				s16 y = sDexNavSearchDataPtr->scanTopY + i;
+
+				if (IsEncounterTile(x, y, environment))
+                {
+					((u32*) availableTiles)[tileCount++] = x | (y << 16); //Splice them together to make the array write faster
+                }
+			}
+		}
+	}
+
+	//Finally pick a random tile of the available tiles
+	if (tileCount > 0)
+	{
+		if (!mustFindTile)
+		{
+			if (tileCount < 5)
+            {
+				return FALSE; //Pokemon should never be found in such a small space
+            }
+
+			rate = 70 + sDexNavSearchDataPtr->searchLevel; //Pokemon with Search Level 30+ are guaranteed to be found
+			if (Random() % 100 > rate)
+            {
+				return FALSE; //Modulate the encounter rate
+            }
+		}
+
+		pos = &availableTiles[Random() % tileCount];
+		*xBuff = pos->x;
+		*yBuff = pos->y;
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+static bool8 DexNavPickTile(u8 environment, u8 xSize, u8 ySize, bool8 mustFindTile)
+{
+	return PickTileScreen(environment, xSize, ySize, &sDexNavSearchDataPtr->tileX, &sDexNavSearchDataPtr->tileY, mustFindTile);
 }
 
 
