@@ -614,12 +614,16 @@ static void DexNavProximityUpdate(void)
 
 static bool8 IsEncounterTile(s16 x, s16 y, u8 environment)
 {
-	u32 tileBehavior = MapGridGetMetatileBehaviorAt(x, y);
-	if (MetatileBehavior_IsStairs(tileBehavior))
+    u32 tileBehavior = MapGridGetMetatileBehaviorAt(x, y);
+    if (MetatileBehavior_IsStairs(tileBehavior))
+    {
 		return FALSE; //Can't encounter on stairs because it's wonky on side stairs
+    }
 
 	if (GetCoordEventScriptAtPosition(&gMapHeader, x - 7, y - 7, MapGridGetElevationAt(x, y)))
+    {
 		return FALSE; //Better not to start an enounter on spot that a script should be activated on
+    }
 
     if (environment == ENCOUNTER_TYPE_LAND) {
         return MetatileBehavior_IsLandWildEncounter(tileBehavior);
@@ -710,7 +714,7 @@ static bool8 PickTileScreen(u8 environment, u8 widthX, u8 heightY, s16 *xBuff, s
 	u32 i, j, totalLengthX, totalLengthY, tileCount, playerX, playerY;
     u16 rate;
     struct Coords16* pos;
-	struct Coords16 availableTiles[totalLengthX * totalLengthY];
+    struct Coords16 availableTiles[(widthX + widthX) * (heightY + heightY)];
 	playerX = gSaveBlock1Ptr->pos.x + 7;
 	playerY = gSaveBlock1Ptr->pos.y + 7;
 
@@ -798,10 +802,11 @@ static bool8 TryStartHiddenMonFieldEffect(u8 environment, u8 xSize, u8 ySize, bo
     u32 i;
     u8 currMapType = GetCurrentMapType();
     u8 fldEffId = 0;
+    u8 metatileBehaviour;
     
     if (DexNavPickTile(environment, xSize, ySize, smallScan))
     {
-        u8 metatileBehaviour = MapGridGetMetatileBehaviorAt(sDexNavSearchDataPtr->tileX, sDexNavSearchDataPtr->tileY);
+        metatileBehaviour = MapGridGetMetatileBehaviorAt(sDexNavSearchDataPtr->tileX, sDexNavSearchDataPtr->tileY);
 
         switch (environment)
         {
