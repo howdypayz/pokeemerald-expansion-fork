@@ -1089,7 +1089,8 @@ extern const u8 EventScript_DisableAutoRun[];
 extern const u8 EventScript_EnableAutoRun[];
 static bool8 EnableAutoRun(void)
 {
-    if (!FlagGet(FLAG_SYS_B_DASH) || FlagGet(FLAG_SYS_DEXNAV_SEARCH))
+    if (!FlagGet(FLAG_SYS_B_DASH) || FlagGet(FLAG_SYS_DEXNAV_SEARCH)
+        || (gPlayerAvatar.flags & (PLAYER_AVATAR_FLAG_MACH_BIKE | PLAYER_AVATAR_FLAG_ACRO_BIKE | PLAYER_AVATAR_FLAG_SURFING | PLAYER_AVATAR_FLAG_UNDERWATER)))
         return FALSE;   //auto run unusable until you get running shoes, also not available if in dexnav search
 
     PlaySE(SE_SELECT);
