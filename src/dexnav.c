@@ -107,11 +107,11 @@ struct DexNavSearch
     u16 palBuffer[16];
 
     s16 scanLeftX;
-	s16 scanTopY;
-	bool8 reachableTiles[16][16];
-	bool8 impassibleTiles[16][16];
-	s16 scanRightX;
-	s16 scanBottomY;
+    s16 scanTopY;
+    bool8 reachableTiles[16][16];
+    bool8 impassibleTiles[16][16];
+    s16 scanRightX;
+    s16 scanBottomY;
 };
 
 struct DexNavGUI
@@ -617,12 +617,12 @@ static bool8 IsEncounterTile(s16 x, s16 y, u8 environment)
     u32 tileBehavior = MapGridGetMetatileBehaviorAt(x, y);
     if (MetatileBehavior_IsStairs(tileBehavior))
     {
-		return FALSE; //Can't encounter on stairs because it's wonky on side stairs
+        return FALSE; //Can't encounter on stairs because it's wonky on side stairs
     }
 
-	if (GetCoordEventScriptAtPosition(&gMapHeader, x - 7, y - 7, MapGridGetElevationAt(x, y)))
+    if (GetCoordEventScriptAtPosition(&gMapHeader, x - 7, y - 7, MapGridGetElevationAt(x, y)))
     {
-		return FALSE; //Better not to start an enounter on spot that a script should be activated on
+        return FALSE; //Better not to start an enounter on spot that a script should be activated on
     }
 
     if (environment == ENCOUNTER_TYPE_LAND) {
@@ -633,29 +633,29 @@ static bool8 IsEncounterTile(s16 x, s16 y, u8 environment)
 
 static bool8 CanTileBeReachedFromTile(s16 oldX, s16 oldY, s16 newX, s16 newY) //Eg. is there edge between two nodes
 {
-	s16 newXInGrid = newX - sDexNavSearchDataPtr->scanLeftX;
-	s16 newYInGrid = newY - sDexNavSearchDataPtr->scanTopY;
-	u8 behaviour = MapGridGetMetatileBehaviorAt(newX, newY);
+    s16 newXInGrid = newX - sDexNavSearchDataPtr->scanLeftX;
+    s16 newYInGrid = newY - sDexNavSearchDataPtr->scanTopY;
+    u8 behaviour = MapGridGetMetatileBehaviorAt(newX, newY);
 
-	if (sDexNavSearchDataPtr->reachableTiles[newYInGrid][newXInGrid] //Tile is already reachable so it doesn't need to be reached again
-	    || sDexNavSearchDataPtr->impassibleTiles[newYInGrid][newXInGrid]) //Tile can't be walked on anyway
+    if (sDexNavSearchDataPtr->reachableTiles[newYInGrid][newXInGrid] //Tile is already reachable so it doesn't need to be reached again
+        || sDexNavSearchDataPtr->impassibleTiles[newYInGrid][newXInGrid]) //Tile can't be walked on anyway
     {
-		return FALSE;
+        return FALSE;
     }
 
-	if (MapGridGetCollisionAt(newX, newY) > 0 // Impassable
+    if (MapGridGetCollisionAt(newX, newY) > 0 // Impassable
         || behaviour == MB_MUDDY_SLOPE //Can't actually make it over this tile
         || behaviour == MB_CRACKED_FLOOR //Can't actually make it over this tile
         || (newX - 7) >= gMapHeader.mapLayout->width //DexNav scan stops when leaving the map
         || (newX - 7) < 0
         || (newY - 7) >= gMapHeader.mapLayout->height
         || (newY - 7) < 0)
-	{
-		sDexNavSearchDataPtr->impassibleTiles[newYInGrid][newXInGrid] = TRUE;
-		return FALSE;
-	}
+    {
+        sDexNavSearchDataPtr->impassibleTiles[newYInGrid][newXInGrid] = TRUE;
+        return FALSE;
+    }
 
-	return !IsElevationMismatchAt(MapGridGetElevationAt(oldX, oldY), newX, newY); //Must be on same elevation
+    return !IsElevationMismatchAt(MapGridGetElevationAt(oldX, oldY), newX, newY); //Must be on same elevation
 }
 
 //Only called if a position is actually reachable
@@ -663,143 +663,143 @@ static bool8 CanTileBeReachedFromTile(s16 oldX, s16 oldY, s16 newX, s16 newY) //
 //The x and y coords are spliced together to make the array writes faster than by writing manually to a Coords16 array
 #define EnqueuePos(queue, queueCount, x, y)                                                          \
 {                                                                                                    \
-	((u32*) queue)[queueCount] = (x) | ((y) << 16);                                                  \
-	sDexNavSearchDataPtr->reachableTiles[y - sDexNavSearchDataPtr->scanTopY][x - sDexNavSearchDataPtr->scanLeftX] = TRUE; \
+    ((u32*) queue)[queueCount] = (x) | ((y) << 16);                                                  \
+    sDexNavSearchDataPtr->reachableTiles[y - sDexNavSearchDataPtr->scanTopY][x - sDexNavSearchDataPtr->scanLeftX] = TRUE; \
 }
 
 static void UpdateReachableTiles(s16 startX, s16 startY, u32 totalLengthX, u32 totalLengthY)
 {
-	u32 currQueueIndex = 0;
-	u32 queueCount = 1;
-	struct Coords16 *queue;
+    u32 currQueueIndex = 0;
+    u32 queueCount = 1;
+    struct Coords16 *queue;
 
     queue = AllocZeroed(sizeof(struct Coords16) * totalLengthX * totalLengthY);
-	queue[0].x = startX; //Because they're set here and not in EnqueuePos, the player's tile isn't considered (intended)
-	queue[0].y = startY;
+    queue[0].x = startX; //Because they're set here and not in EnqueuePos, the player's tile isn't considered (intended)
+    queue[0].y = startY;
 
-	while (currQueueIndex < queueCount)
-	{
-		s16 x = queue[currQueueIndex].x;
-		s16 y = queue[currQueueIndex].y;
+    while (currQueueIndex < queueCount)
+    {
+        s16 x = queue[currQueueIndex].x;
+        s16 y = queue[currQueueIndex].y;
 
-		if (x - 1 >= sDexNavSearchDataPtr->scanLeftX
-		&& CanTileBeReachedFromTile(x, y, x - 1, y))
+        if (x - 1 >= sDexNavSearchDataPtr->scanLeftX
+        && CanTileBeReachedFromTile(x, y, x - 1, y))
         {
-			EnqueuePos(queue, queueCount++, x - 1, y);
+            EnqueuePos(queue, queueCount++, x - 1, y);
         }
 
-		if (x + 1 <= sDexNavSearchDataPtr->scanRightX
-		&& CanTileBeReachedFromTile(x, y, x + 1, y))
+        if (x + 1 <= sDexNavSearchDataPtr->scanRightX
+        && CanTileBeReachedFromTile(x, y, x + 1, y))
         {
-			EnqueuePos(queue, queueCount++, x + 1, y);
+            EnqueuePos(queue, queueCount++, x + 1, y);
         }
 
-		if (y - 1 >= sDexNavSearchDataPtr->scanTopY
-		&& CanTileBeReachedFromTile(x, y, x, y - 1))
+        if (y - 1 >= sDexNavSearchDataPtr->scanTopY
+        && CanTileBeReachedFromTile(x, y, x, y - 1))
         {
-			EnqueuePos(queue, queueCount++, x, y - 1);
+            EnqueuePos(queue, queueCount++, x, y - 1);
         }
 
-		if (y + 1 <= sDexNavSearchDataPtr->scanBottomY
-		&& CanTileBeReachedFromTile(x, y, x, y + 1))
+        if (y + 1 <= sDexNavSearchDataPtr->scanBottomY
+        && CanTileBeReachedFromTile(x, y, x, y + 1))
         {
-			EnqueuePos(queue, queueCount++, x, y + 1);
+            EnqueuePos(queue, queueCount++, x, y + 1);
         }
 
-		++currQueueIndex;
-	}
+        ++currQueueIndex;
+    }
     Free(queue);
 }
 
 static bool8 PickTileScreen(u8 environment, u8 widthX, u8 heightY, s16 *xBuff, s16 *yBuff, bool8 mustFindTile)
 {
-	u32 i, j, totalLengthX, totalLengthY, tileCount, playerX, playerY;
+    u32 i, j, totalLengthX, totalLengthY, tileCount, playerX, playerY;
     u16 rate;
     struct Coords16 *pos;
     struct Coords16 *availableTiles;
     availableTiles = AllocZeroed(sizeof(struct Coords16) * (widthX + widthX) * (heightY + heightY));
-	playerX = gSaveBlock1Ptr->pos.x + 7;
-	playerY = gSaveBlock1Ptr->pos.y + 7;
+    playerX = gSaveBlock1Ptr->pos.x + 7;
+    playerY = gSaveBlock1Ptr->pos.y + 7;
 
-	sDexNavSearchDataPtr->scanLeftX = playerX - widthX;
-	sDexNavSearchDataPtr->scanTopY = playerY - heightY;
-	sDexNavSearchDataPtr->scanRightX = playerX + widthX;
-	sDexNavSearchDataPtr->scanBottomY = playerY + heightY;
-	totalLengthX = sDexNavSearchDataPtr->scanRightX - sDexNavSearchDataPtr->scanLeftX;
-	totalLengthY = sDexNavSearchDataPtr->scanBottomY - sDexNavSearchDataPtr->scanTopY;
+    sDexNavSearchDataPtr->scanLeftX = playerX - widthX;
+    sDexNavSearchDataPtr->scanTopY = playerY - heightY;
+    sDexNavSearchDataPtr->scanRightX = playerX + widthX;
+    sDexNavSearchDataPtr->scanBottomY = playerY + heightY;
+    totalLengthX = sDexNavSearchDataPtr->scanRightX - sDexNavSearchDataPtr->scanLeftX;
+    totalLengthY = sDexNavSearchDataPtr->scanBottomY - sDexNavSearchDataPtr->scanTopY;
 
-	memset(sDexNavSearchDataPtr->reachableTiles, 0x0, sizeof(sDexNavSearchDataPtr->reachableTiles)); //From previous scans if necessary (eg. in caves and on water)
-	memset(sDexNavSearchDataPtr->impassibleTiles, 0x0, sizeof(sDexNavSearchDataPtr->impassibleTiles));
+    memset(sDexNavSearchDataPtr->reachableTiles, 0x0, sizeof(sDexNavSearchDataPtr->reachableTiles)); //From previous scans if necessary (eg. in caves and on water)
+    memset(sDexNavSearchDataPtr->impassibleTiles, 0x0, sizeof(sDexNavSearchDataPtr->impassibleTiles));
 
-	//First remove any tiles from consideration that have NPCs on them
-	for (i = 0; i < OBJECT_EVENTS_COUNT; ++i)
-	{
-		if (gObjectEvents[i].active
-		&& gObjectEvents[i].currentCoords.x >= sDexNavSearchDataPtr->scanLeftX
-		&& gObjectEvents[i].currentCoords.x <= sDexNavSearchDataPtr->scanRightX
-		&& gObjectEvents[i].currentCoords.y >= sDexNavSearchDataPtr->scanTopY
-		&& gObjectEvents[i].currentCoords.y <= sDexNavSearchDataPtr->scanBottomY)
-		{
-			s16 x = gObjectEvents[i].currentCoords.x - sDexNavSearchDataPtr->scanLeftX;
-			s16 y = gObjectEvents[i].currentCoords.y - sDexNavSearchDataPtr->scanTopY;
-			sDexNavSearchDataPtr->impassibleTiles[y][x] = TRUE;
-		}
-	}
+    //First remove any tiles from consideration that have NPCs on them
+    for (i = 0; i < OBJECT_EVENTS_COUNT; ++i)
+    {
+        if (gObjectEvents[i].active
+        && gObjectEvents[i].currentCoords.x >= sDexNavSearchDataPtr->scanLeftX
+        && gObjectEvents[i].currentCoords.x <= sDexNavSearchDataPtr->scanRightX
+        && gObjectEvents[i].currentCoords.y >= sDexNavSearchDataPtr->scanTopY
+        && gObjectEvents[i].currentCoords.y <= sDexNavSearchDataPtr->scanBottomY)
+        {
+            s16 x = gObjectEvents[i].currentCoords.x - sDexNavSearchDataPtr->scanLeftX;
+            s16 y = gObjectEvents[i].currentCoords.y - sDexNavSearchDataPtr->scanTopY;
+            sDexNavSearchDataPtr->impassibleTiles[y][x] = TRUE;
+        }
+    }
 
-	//Then determine the tiles that can be reached from the player's current position
-	UpdateReachableTiles(playerX, playerY, totalLengthX, totalLengthY);
+    //Then determine the tiles that can be reached from the player's current position
+    UpdateReachableTiles(playerX, playerY, totalLengthX, totalLengthY);
 
-	//Of the tiles that can be reached, add the encounter tiles to a list
-	for (i = 0, tileCount = 0; i < totalLengthY; ++i)
-	{
-		for (j = 0; j < totalLengthX; ++j)
-		{
-			if (sDexNavSearchDataPtr->reachableTiles[i][j])
-			{
-				s16 x = sDexNavSearchDataPtr->scanLeftX + j;
-				s16 y = sDexNavSearchDataPtr->scanTopY + i;
+    //Of the tiles that can be reached, add the encounter tiles to a list
+    for (i = 0, tileCount = 0; i < totalLengthY; ++i)
+    {
+        for (j = 0; j < totalLengthX; ++j)
+        {
+            if (sDexNavSearchDataPtr->reachableTiles[i][j])
+            {
+                s16 x = sDexNavSearchDataPtr->scanLeftX + j;
+                s16 y = sDexNavSearchDataPtr->scanTopY + i;
 
-				if (IsEncounterTile(x, y, environment))
+                if (IsEncounterTile(x, y, environment))
                 {
-					((u32*) availableTiles)[tileCount++] = x | (y << 16); //Splice them together to make the array write faster
+                    ((u32*) availableTiles)[tileCount++] = x | (y << 16); //Splice them together to make the array write faster
                 }
-			}
-		}
-	}
+            }
+        }
+    }
 
-	//Finally pick a random tile of the available tiles
-	if (tileCount > 0)
-	{
-		if (!mustFindTile)
-		{
-			if (tileCount < 5)
+    //Finally pick a random tile of the available tiles
+    if (tileCount > 0)
+    {
+        if (!mustFindTile)
+        {
+            if (tileCount < 5)
             {
                 Free(availableTiles);
-				return FALSE; //Pokemon should never be found in such a small space
+                return FALSE; //Pokemon should never be found in such a small space
             }
 
-			rate = 70 + sDexNavSearchDataPtr->searchLevel; //Pokemon with Search Level 30+ are guaranteed to be found
-			if (Random() % 100 > rate)
+            rate = 70 + sDexNavSearchDataPtr->searchLevel; //Pokemon with Search Level 30+ are guaranteed to be found
+            if (Random() % 100 > rate)
             {
                 Free(availableTiles);
-				return FALSE; //Modulate the encounter rate
+                return FALSE; //Modulate the encounter rate
             }
-		}
+        }
 
-		pos = &availableTiles[Random() % tileCount];
-		*xBuff = pos->x;
-		*yBuff = pos->y;
+        pos = &availableTiles[Random() % tileCount];
+        *xBuff = pos->x;
+        *yBuff = pos->y;
         Free(availableTiles);
-		return TRUE;
-	}
+        return TRUE;
+    }
 
     Free(availableTiles);
-	return FALSE;
+    return FALSE;
 }
 
 static bool8 DexNavPickTile(u8 environment, u8 xSize, u8 ySize, bool8 mustFindTile)
 {
-	return PickTileScreen(environment, xSize, ySize, &sDexNavSearchDataPtr->tileX, &sDexNavSearchDataPtr->tileY, mustFindTile);
+    return PickTileScreen(environment, xSize, ySize, &sDexNavSearchDataPtr->tileX, &sDexNavSearchDataPtr->tileY, mustFindTile);
 }
 
 
