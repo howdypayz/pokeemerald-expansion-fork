@@ -671,8 +671,9 @@ static void UpdateReachableTiles(s16 startX, s16 startY, u32 totalLengthX, u32 t
 {
 	u32 currQueueIndex = 0;
 	u32 queueCount = 1;
-	struct Coords16 queue[totalLengthX * totalLengthY];
-	memset(queue, 0x0, sizeof(queue));
+	struct Coords16 *queue;
+
+    queue = AllocZeroed(sizeof(struct Coords16) * totalLengthX * totalLengthY);
 	queue[0].x = startX; //Because they're set here and not in EnqueuePos, the player's tile isn't considered (intended)
 	queue[0].y = startY;
 
@@ -707,14 +708,16 @@ static void UpdateReachableTiles(s16 startX, s16 startY, u32 totalLengthX, u32 t
 
 		++currQueueIndex;
 	}
+    Free(queue);
 }
 
 static bool8 PickTileScreen(u8 environment, u8 widthX, u8 heightY, s16 *xBuff, s16 *yBuff, bool8 mustFindTile)
 {
 	u32 i, j, totalLengthX, totalLengthY, tileCount, playerX, playerY;
     u16 rate;
-    struct Coords16* pos;
-    struct Coords16 availableTiles[(widthX + widthX) * (heightY + heightY)];
+    struct Coords16 *pos;
+    struct Coords16 *availableTiles;
+    availableTiles = AllocZeroed(sizeof(struct Coords16) * (widthX + widthX) * (heightY + heightY));
 	playerX = gSaveBlock1Ptr->pos.x + 7;
 	playerY = gSaveBlock1Ptr->pos.y + 7;
 
@@ -725,7 +728,6 @@ static bool8 PickTileScreen(u8 environment, u8 widthX, u8 heightY, s16 *xBuff, s
 	totalLengthX = sDexNavSearchDataPtr->scanRightX - sDexNavSearchDataPtr->scanLeftX;
 	totalLengthY = sDexNavSearchDataPtr->scanBottomY - sDexNavSearchDataPtr->scanTopY;
 
-	memset(availableTiles, 0x0, sizeof(availableTiles));
 	memset(sDexNavSearchDataPtr->reachableTiles, 0x0, sizeof(sDexNavSearchDataPtr->reachableTiles)); //From previous scans if necessary (eg. in caves and on water)
 	memset(sDexNavSearchDataPtr->impassibleTiles, 0x0, sizeof(sDexNavSearchDataPtr->impassibleTiles));
 
@@ -772,12 +774,14 @@ static bool8 PickTileScreen(u8 environment, u8 widthX, u8 heightY, s16 *xBuff, s
 		{
 			if (tileCount < 5)
             {
+                Free(availableTiles);
 				return FALSE; //Pokemon should never be found in such a small space
             }
 
 			rate = 70 + sDexNavSearchDataPtr->searchLevel; //Pokemon with Search Level 30+ are guaranteed to be found
 			if (Random() % 100 > rate)
             {
+                Free(availableTiles);
 				return FALSE; //Modulate the encounter rate
             }
 		}
@@ -785,9 +789,11 @@ static bool8 PickTileScreen(u8 environment, u8 widthX, u8 heightY, s16 *xBuff, s
 		pos = &availableTiles[Random() % tileCount];
 		*xBuff = pos->x;
 		*yBuff = pos->y;
+        Free(availableTiles);
 		return TRUE;
 	}
 
+    Free(availableTiles);
 	return FALSE;
 }
 
@@ -956,7 +962,7 @@ static void Task_InitDexNavSearch(u8 taskId)
         return;
     }
     
-    if (sDexNavSearchDataPtr->monLevel == MON_LEVEL_NONEXISTENT || !TryStartHiddenMonFieldEffect(sDexNavSearchDataPtr->environment, 12, 12, FALSE))
+    if (sDexNavSearchDataPtr->monLevel == MON_LEVEL_NONEXISTENT || !TryStartHiddenMonFieldEffect(sDexNavSearchDataPtr->environment, 7, 5, FALSE))
     {
         Free(sDexNavSearchDataPtr);
         FreeMonIconPalettes();
@@ -1222,7 +1228,7 @@ static void Task_DexNavSearch(u8 taskId)
         
         FieldEffectStop(&gSprites[sDexNavSearchDataPtr->fldEffSpriteId], sDexNavSearchDataPtr->fldEffId);
         while (1) {
-            if (TryStartHiddenMonFieldEffect(sDexNavSearchDataPtr->environment, 10, 10, TRUE))
+            if (TryStartHiddenMonFieldEffect(sDexNavSearchDataPtr->environment, 4, 4, TRUE))
                 break;
         }
         
@@ -2695,7 +2701,7 @@ bool8 TryFindHiddenPokemon(void)
 
         // find tile for hidden mon and start effect if possible
         while (1) {
-            if (TryStartHiddenMonFieldEffect(sDexNavSearchDataPtr->environment, 8, 8, TRUE))
+            if (TryStartHiddenMonFieldEffect(sDexNavSearchDataPtr->environment, 7, 5, TRUE))
                 break;
             if (++attempts > 20)
                 return FALSE;   //cannot find suitable tile
