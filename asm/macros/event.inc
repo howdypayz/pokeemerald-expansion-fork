@@ -1758,7 +1758,7 @@
 	.endm
 
 	.macro givecustommon species:req, level:req, item, ball, nature, abilityNum, hpEv, atkEv, defEv, speedEv, spAtkEv, spDefEv, hpIv, atkIv, defIv, speedIv, spAtkIv, spDefIv, move1, move2, move3, move4, isShiny
-	.byte 0xe3
+	.byte 0xe7
 	.2byte \species
 	.byte \level
 	.ifb \item
@@ -1871,7 +1871,7 @@
 	.endm
 
 	.macro givemonmoves species:req, level:req, move1:req, move2:req, move3:req, move4:req
-	customgivemon \species, \level, 0, 0, NUM_NATURES, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \move1, \move2, \move3, \move4, 0
+	givecustommon \species, \level, 0, 0, NUM_NATURES, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \move1, \move2, \move3, \move4, 0
 	.endm
 
 @ Supplementary

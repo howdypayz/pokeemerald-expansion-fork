@@ -299,7 +299,7 @@ u8 ScriptGiveCustomMon(u16 species, u8 level, u16 item, u8 ball, u8 nature, u8 a
     
     for (i = 0; i < MAX_MON_MOVES; i++)
     {
-        if (moves[i] == 0 || moves[i] == 0xFF || moves[i] > MOVES_COUNT)
+        if (moves[i] == 0xFF || moves[i] > MOVES_COUNT)
             continue;
         
         SetMonMoveSlot(&mon, moves[i], i);
