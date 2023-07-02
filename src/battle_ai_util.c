@@ -536,6 +536,22 @@ void ClearBattlerItemEffectHistory(u8 battlerId)
     BATTLE_HISTORY->itemEffects[battlerId] = 0;
 }
 
+static u8 GetBattlerItemEffect(u8 battlerId)
+{
+	if (gBattleMons[battlerId].ability != ABILITY_KLUTZ && !gDisableStructs[battlerId].embargoTimer && !gFieldTimers.magicRoomTimer)
+		return ItemId_GetHoldEffect(gBattleMons[battlerId].item);
+
+	return 0;
+}
+
+u8 GetRecordedItemEffect(u8 battlerId)
+{
+	if (GetBattlerItemEffect(battlerId) == BATTLE_HISTORY->itemEffects[battlerId]) //Allows factoring in Klutz and Magic Room
+		return BATTLE_HISTORY->itemEffects[battlerId];
+
+	return 0;
+}
+
 void SaveBattlerData(u8 battlerId)
 {
     if (!BattlerHasAi(battlerId))
@@ -1055,6 +1071,7 @@ u32 AI_GetMoveEffectiveness(u16 move, u8 battlerAtk, u8 battlerDef)
     return AI_GetEffectiveness(AI_GetTypeEffectiveness(move, battlerAtk, battlerDef));
 }
 
+// Useful
 static u32 AI_GetEffectiveness(u16 multiplier)
 {
     switch (multiplier)

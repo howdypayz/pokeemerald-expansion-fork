@@ -95,6 +95,8 @@ enum
 
 extern const struct TypePower gNaturalGiftTable[];
 
+struct ChooseMoveStruct;
+
 void HandleAction_ThrowBall(void);
 bool32 IsAffectedByFollowMe(u32 battlerAtk, u32 defSide, u32 move);
 void HandleAction_UseMove(void);
@@ -212,6 +214,8 @@ bool8 IsMoveAffectedByParentalBond(u16 move, u8 battlerId);
 void CopyMonLevelAndBaseStatsToBattleMon(u32 battler, struct Pokemon *mon);
 void CopyMonAbilityAndTypesToBattleMon(u32 battler, struct Pokemon *mon);
 void RecalcBattlerStats(u32 battler, struct Pokemon *mon);
+bool8 SameTypeAttackBonusApplies(u8 battlerId, u16 move, u8 moveType);
+u8 TypeEffectiveness(u16 move, u8 attackerId, u8 targetId);
 // Ability checks
 bool32 IsRolePlayBannedAbilityAtk(u16 ability);
 bool32 IsRolePlayBannedAbility(u16 ability);
