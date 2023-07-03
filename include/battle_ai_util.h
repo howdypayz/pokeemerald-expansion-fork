@@ -17,7 +17,6 @@ void RecordKnownMove(u8 battlerId, u32 move);
 void RecordAbilityBattle(u8 battlerId, u16 abilityId);
 void ClearBattlerAbilityHistory(u8 battlerId);
 void RecordItemEffectBattle(u8 battlerId, u8 itemEffect);
-u8 GetRecordedItemEffect(u8 battlerId);
 void ClearBattlerItemEffectHistory(u8 battlerId);
 void SaveBattlerData(u8 battlerId);
 void SetBattlerData(u8 battlerId);

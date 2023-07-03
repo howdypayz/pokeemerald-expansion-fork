@@ -8090,7 +8090,7 @@ u8 IsMonDisobedient(void)
     }
 }
 
-u32 GetBattlerHoldEffectInner(u8 battlerId, bool32 checkNegating)
+u32 GetBattlerHoldEffect(u8 battlerId, bool32 checkNegating)
 {
     if (checkNegating)
     {
@@ -8102,6 +8102,8 @@ u32 GetBattlerHoldEffectInner(u8 battlerId, bool32 checkNegating)
             return HOLD_EFFECT_NONE;
     }
 
+    gPotentialItemEffectBattler = battlerId;
+
 #if DEBUG_BATTLE_MENU == TRUE
     if (gBattleStruct->debugHoldEffects[battlerId] != 0 && gBattleMons[battlerId].item)
         return gBattleStruct->debugHoldEffects[battlerId];
@@ -8111,16 +8113,6 @@ u32 GetBattlerHoldEffectInner(u8 battlerId, bool32 checkNegating)
         return gEnigmaBerries[battlerId].holdEffect;
     else
         return ItemId_GetHoldEffect(gBattleMons[battlerId].item);
-}
-
-u32 GetBattlerHoldEffect(u8 battlerId, bool32 checkNegating)
-{
-    if (!checkNegating || !((gStatuses3[battlerId] & STATUS3_EMBARGO) || (gFieldStatuses & STATUS_FIELD_MAGIC_ROOM) || (GetBattlerAbility(battlerId) == ABILITY_KLUTZ)))
-    {
-        gPotentialItemEffectBattler = battlerId;
-    }
-
-    return GetBattlerHoldEffectInner(battlerId, checkNegating);
 }
 
 static u32 GetBattlerItemHoldEffectParam(u8 battlerId, u16 item)
@@ -8354,127 +8346,20 @@ static void MulModifier(u16 *modifier, u16 val)
     *modifier = UQ_4_12_TO_INT((*modifier * val) + UQ_4_12_ROUND);
 }
 
-//The TypeCalc for showing move effectiveness on the move menu
+// The TypeCalc for showing move effectiveness on the move menu
 u8 TypeEffectiveness(u16 move, u8 attackerId, u8 targetId)
 {
-    u8 moveType, moveEffect, defEffect;
-	u8 atkAbility, defType1, defType2, defType3, flags;
-    u16 defSpecies, defAbility;
-    struct Pokemon* monIllusion;
+    u8 moveType;
+    u16 typeEffectivenessMultiplier;
+    // Set dynamic move type.
+    SetTypeBeforeUsingMove(move, attackerId);
+    GET_MOVE_TYPE(move, moveType);
+    typeEffectivenessMultiplier = CalcTypeEffectivenessMultiplier(move, moveType, attackerId, targetId, FALSE);
 
-	if (move == MOVE_STRUGGLE)
-		return 0;
+    // TODO look for 'gMoveResultFlags' in battle_scripts_1.s
+    // TODO modify the multiplier according to move effects as is done in those instances (we only care about super, not very and no effect)
 
-	defEffect = GetRecordedItemEffect(targetId);
-	flags = 0;
-
-	atkAbility = gBattleMons[attackerId].ability;
-	moveType = GetOverallMoveType(move, attackerId);
-	moveEffect = gBattleMoves[move].effect;
-
-	monIllusion = GetIllusionMonPtr(targetId);
-	if (monIllusion != NULL)
-	{
-		defSpecies = GetMonData(monIllusion, MON_DATA_SPECIES);
-		defAbility = GetMonAbility(monIllusion);
-		if ((gSpeciesInfo[defSpecies].abilities[0] != ABILITY_NONE && gSpeciesInfo[defSpecies].abilities[0] != defAbility)
-		|| (gSpeciesInfo[defSpecies].abilities[1] != ABILITY_NONE && gSpeciesInfo[defSpecies].abilities[1] != defAbility)
-		|| (gSpeciesInfo[defSpecies].abilities[2] != ABILITY_NONE && gSpeciesInfo[defSpecies].abilities[2] != defAbility))
-			defAbility = ABILITY_NONE; //Mon could have multiple Abilities so don't reveal the correct one to the player
-
-		defType1 = gSpeciesInfo[defSpecies].types[0];
-		defType2 = gSpeciesInfo[defSpecies].types[1];
-	}
-	else
-	{
-		defAbility = GetBattlerAbility(targetId);
-		defType1 = gBattleMons[targetId].type1;
-		defType2 = gBattleMons[targetId].type2;
-	}
-
-	defType3 = gBattleMons[targetId].type3; //Not affected by Illusion
-
-    #ifdef B_DYNAMAX
-	if (IsDynamaxed(targetId) && gSpecialMoveFlags[move].gDynamaxBannedMoves) //These moves aren't related to type matchups, but they can still cause the move to fail and should be known to the player
-	{
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-	} else
-    #endif
-    // TODO checked up to here
-    if (moveType == TYPE_GROUND //Check Special Ground Immunities
-	&& SPLIT(move) != SPLIT_STATUS
-	&& !NonInvasiveCheckGrounding(targetId, defAbility, defType1, defType2, defType3)
-	&& ((defAbility == ABILITY_LEVITATE && NO_MOLD_BREAKERS(atkAbility, move))
-	 || defEffect == ITEM_EFFECT_AIR_BALLOON
-	 || (gStatuses3[targetId] & (STATUS3_LEVITATING | STATUS3_TELEKINESIS))
-	 || IsFloatingWithMagnetism(targetId)
-	 || underIllusion) //Needed because ModulateDamageByType doesn't take Illusion into account - will still cause a mistake if Flying-type mon has Illusion, but that case is so rare it doesn't matter
-	&& move != MOVE_THOUSANDARROWS)
-	{
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-	}
-	else if (gSpecialMoveFlags[move].gPowderMoves && !IsAffectedByPowderByDetails(defType1, defType2, defType3, defAbility, defEffect))
-	{
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-	}
-	else if (moveEffect == EFFECT_PARALYZE && (defType1 == TYPE_ELECTRIC || defType2 == TYPE_ELECTRIC || defType3 == TYPE_ELECTRIC))
-	{
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-	}
-	else if (moveEffect == EFFECT_WILL_O_WISP && (defType1 == TYPE_FIRE || defType2 == TYPE_FIRE || defType3 == TYPE_FIRE))
-	{
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-	}
-	else if ((moveEffect == EFFECT_POISON || moveEffect == EFFECT_TOXIC)
-	&& atkAbility != ABILITY_CORROSION
-	&& (defType1 == TYPE_POISON || defType2 == TYPE_POISON || defType3 == TYPE_POISON
-	 || defType1 == TYPE_STEEL || defType2 == TYPE_STEEL || defType3 == TYPE_STEEL))
-	{
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-	}
-	else if (moveEffect == EFFECT_LEECH_SEED && (defType1 == TYPE_GRASS || defType2 == TYPE_GRASS || defType3 == TYPE_GRASS))
-	{
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-	}
-	else if (moveEffect == EFFECT_SKY_DROP && (defType1 == TYPE_FLYING || defType2 == TYPE_FLYING || defType3 == TYPE_FLYING))
-	{
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-	}
-	else if (move == MOVE_SYNCHRONOISE && WillSyncronoiseFailByAttackerAnd3DefTypesAndItemEffect(attackerId, defType1, defType2, defType3, defEffect))
-	{
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-	}
-	else //Regular Type Calc
-	{
-		if (SPLIT(move) != SPLIT_STATUS || move == MOVE_THUNDERWAVE) //Thunder Wave is the only status move that doesn't affect based on type (Ground)
-			TypeDamageModificationByDefTypes(atkAbility, targetId, move, moveType, &flags, defType1, defType2, defType3, NULL);
-	}
-
-	if (SPLIT(move) == SPLIT_STATUS)
-	{
-		flags &= ~(MOVE_RESULT_SUPER_EFFECTIVE | MOVE_RESULT_NOT_VERY_EFFECTIVE); //Status moves can't be super/not very effective
-		return flags; //Status moves ignore Wonder Guard and Primal weather
-	}
-
-	if (CheckTableForMovesEffect(move, gMoveEffectsThatIgnoreWeaknessResistance)
-	|| moveEffect == EFFECT_0HKO)
-		flags &= ~(MOVE_RESULT_SUPER_EFFECTIVE | MOVE_RESULT_NOT_VERY_EFFECTIVE); //These moves can't be super/not very effective
-
-	//Wonder Guard Check
-	if (defAbility == ABILITY_WONDERGUARD
-	&& NO_MOLD_BREAKERS(atkAbility, move)
-	&& (!(flags & MOVE_RESULT_SUPER_EFFECTIVE) || ((flags & (MOVE_RESULT_SUPER_EFFECTIVE | MOVE_RESULT_NOT_VERY_EFFECTIVE)) == (MOVE_RESULT_SUPER_EFFECTIVE | MOVE_RESULT_NOT_VERY_EFFECTIVE)))
-	&& gBattleMoves[move].power
-	&& SPLIT(move) != SPLIT_STATUS)
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-
-	//Primal Weather Check
-	if (WEATHER_HAS_EFFECT
-	&& ((gBattleWeather & WEATHER_SUN_PRIMAL && moveType == TYPE_WATER)
-	 || (gBattleWeather & WEATHER_RAIN_PRIMAL && moveType == TYPE_FIRE)))
-		flags |= MOVE_RESULT_DOESNT_AFFECT_FOE;
-
-	return flags;
+    return typeEffectivenessMultiplier;
 }
 
 // check stab
