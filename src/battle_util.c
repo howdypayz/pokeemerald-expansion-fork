@@ -8346,20 +8346,143 @@ static void MulModifier(u16 *modifier, u16 val)
     *modifier = UQ_4_12_TO_INT((*modifier * val) + UQ_4_12_ROUND);
 }
 
+static u8 GetTypeEffectivenessId(u16 typeEffectiveness)
+{
+    u8 result = 0;
+    if (typeEffectiveness == UQ_4_12(0.0))
+    {
+        result |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+        result &= ~(MOVE_RESULT_NOT_VERY_EFFECTIVE | MOVE_RESULT_SUPER_EFFECTIVE);
+    }
+    else if (typeEffectiveness == UQ_4_12(1.0))
+    {
+        result &= ~(MOVE_RESULT_NOT_VERY_EFFECTIVE | MOVE_RESULT_SUPER_EFFECTIVE | MOVE_RESULT_DOESNT_AFFECT_FOE);
+    }
+    else if (typeEffectiveness > UQ_4_12(1.0))
+    {
+        result |= MOVE_RESULT_SUPER_EFFECTIVE;
+        result &= ~(MOVE_RESULT_NOT_VERY_EFFECTIVE | MOVE_RESULT_DOESNT_AFFECT_FOE);
+    }
+    else //if (modifier < UQ_4_12(1.0))
+    {
+        result |= MOVE_RESULT_NOT_VERY_EFFECTIVE;
+        result &= ~(MOVE_RESULT_SUPER_EFFECTIVE | MOVE_RESULT_DOESNT_AFFECT_FOE);
+    }
+    return result;
+}
+
 // The TypeCalc for showing move effectiveness on the move menu
 u8 TypeEffectiveness(u16 move, u8 attackerId, u8 targetId)
 {
-    u8 moveType;
-    u16 typeEffectivenessMultiplier;
+    u8 moveType, typeEffectivenessId, split;
+    u16 typeEffectivenessMultiplier, moveEffect;
+    u32 targetAbility, targetHoldEffect;
+
+    moveEffect = gBattleMoves[move].effect;
     // Set dynamic move type.
     SetTypeBeforeUsingMove(move, attackerId);
     GET_MOVE_TYPE(move, moveType);
     typeEffectivenessMultiplier = CalcTypeEffectivenessMultiplier(move, moveType, attackerId, targetId, FALSE);
+    typeEffectivenessId = GetTypeEffectivenessId(typeEffectivenessMultiplier);
+
+    targetAbility = GetBattlerAbility(targetId);
+    if ((targetAbility == ABILITY_SOUNDPROOF && (gBattleMoves[move].flags & FLAG_SOUND))
+    || (targetAbility == ABILITY_BULLETPROOF && (gBattleMoves[move].flags & FLAG_BALLISTIC)))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+
+    targetHoldEffect = GetBattlerHoldEffect(targetId, TRUE);
+    if ((gBattleMoves[move].flags & FLAG_POWDER) &&
+        (targetHoldEffect == HOLD_EFFECT_SAFETY_GOGGLES
+        || targetAbility == ABILITY_OVERCOAT
+    #if B_POWDER_GRASS >= GEN_6
+        || IS_BATTLER_OF_TYPE(targetId, TYPE_GRASS)
+    #endif
+    ))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (moveEffect == EFFECT_PARALYZE && !(CanParalyzeType(attackerId, targetId) && CanBeParalyzed(targetId)))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (moveEffect == EFFECT_WILL_O_WISP && !CanBeBurned(targetId))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if ((moveEffect == EFFECT_POISON || moveEffect == EFFECT_TOXIC) && !CanBePoisoned(attackerId, targetId))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (moveEffect == EFFECT_LEECH_SEED && IS_BATTLER_OF_TYPE(targetId, TYPE_GRASS))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (moveEffect == EFFECT_SKY_DROP && IS_BATTLER_OF_TYPE(targetId, TYPE_FLYING))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (moveEffect == EFFECT_SYNCHRONOISE && !DoBattlersShareType(attackerId, targetId))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if ((moveEffect == EFFECT_ATTRACT || moveEffect == EFFECT_CAPTIVATE) && (!AreBattlersOfOppositeGender(attackerId, targetId) || targetAbility == ABILITY_OBLIVIOUS))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (moveEffect == EFFECT_TAUNT &&
+        (
+            #if B_OBLIVIOUS_TAUNT >= GEN_6
+            targetAbility == ABILITY_OBLIVIOUS ||
+            #endif
+            FALSE
+        ))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (targetAbility == ABILITY_AROMA_VEIL &&
+        (moveEffect == EFFECT_HEAL_BLOCK || moveEffect == EFFECT_DISABLE || moveEffect == EFFECT_ENCORE ||
+        moveEffect == EFFECT_ATTRACT || moveEffect == EFFECT_TORMENT || moveEffect == EFFECT_TAUNT))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (IsAbilityOnField(ABILITY_DAMP) && (moveEffect == EFFECT_EXPLOSION || moveEffect == EFFECT_MIND_BLOWN))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    // TODO aroma veil
+
+    split = GetBattleMoveSplit(move);
+    if (split == SPLIT_STATUS)
+    {
+        typeEffectivenessId &= ~(MOVE_RESULT_SUPER_EFFECTIVE | MOVE_RESULT_NOT_VERY_EFFECTIVE);
+        return typeEffectivenessId;
+    }
+
+    // TODO
+
+    if (moveEffect == EFFECT_OHKO && gBattleMons[attackerId].level < gBattleMons[targetId].level)
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    // TODO check this
+    /*if (moveEffect == EFFECT_PAIN_SPLIT)
+    {
+        typeEffectivenessId &= ~MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }*/
+    if (moveEffect & 
+        (EFFECT_FINAL_GAMBIT | EFFECT_METAL_BURST | EFFECT_SUPER_FANG | EFFECT_DRAGON_RAGE
+        | EFFECT_LEVEL_DAMAGE | EFFECT_PSYWAVE | EFFECT_COUNTER | EFFECT_SONICBOOM | EFFECT_MIRROR_COAT
+        | EFFECT_ENDEAVOR | EFFECT_BIDE | EFFECT_PAIN_SPLIT | EFFECT_OHKO))
+    {
+        typeEffectivenessId &= ~(MOVE_RESULT_SUPER_EFFECTIVE | MOVE_RESULT_NOT_VERY_EFFECTIVE);
+    }
 
     // TODO look for 'gMoveResultFlags' in battle_scripts_1.s
     // TODO modify the multiplier according to move effects as is done in those instances (we only care about super, not very and no effect)
 
-    return typeEffectivenessMultiplier;
+    return typeEffectivenessId;
 }
 
 // check stab

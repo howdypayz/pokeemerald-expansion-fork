@@ -1785,17 +1785,18 @@ static void MoveSelectionDisplayPpNumber(void)
 
 static u8 GetTypeEffectivenessId(u8 typeEffectiveness)
 {
-    if (typeEffectiveness & MOVE_RESULT_SUPER_EFFECTIVE)
+    // No effect should be checked first - I think it can overlap with 'super' and 'not very'
+    if (typeEffectiveness & MOVE_RESULT_NO_EFFECT)
+    {
+        return 2;
+    }
+    else if (typeEffectiveness & MOVE_RESULT_SUPER_EFFECTIVE)
     {
         return 0;
     }
     else if (typeEffectiveness & MOVE_RESULT_NOT_VERY_EFFECTIVE)
     {
         return 1;
-    }
-    else if (typeEffectiveness & MOVE_RESULT_NO_EFFECT)
-    {
-        return 2;
     }
     return 3;
 }
@@ -1809,9 +1810,9 @@ static void MoveSelectionDisplayTypeEffectivenessAndStab(void)
     u8 typeEffectiveness = TypeEffectiveness(move, gActiveBattler, 1);
     u8 typeEffectivenessId = GetTypeEffectivenessId(typeEffectiveness);
     u8 moveType = gBattleMoves[moveInfo->moves[gMoveSelectionCursor[gActiveBattler]]].type;
-    int split = GetBattleMoveSplit(moveInfo->moves[gMoveSelectionCursor[gActiveBattler]]);
+    u8 split = GetBattleMoveSplit(moveInfo->moves[gMoveSelectionCursor[gActiveBattler]]);
     bool8 stabApplies = SameTypeAttackBonusApplies(gActiveBattler, move, moveType)
-        && split != 2 // STATUS
+        && split != SPLIT_STATUS // STATUS
         && typeEffectivenessId != 2; // No effect
         // TODO && notinnonstabbylistofmoves
     
