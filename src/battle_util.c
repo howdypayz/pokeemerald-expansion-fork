@@ -8447,11 +8447,32 @@ u8 TypeEffectiveness(u16 move, u8 attackerId, u8 targetId)
     {
         typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
     }
-    if (IsAbilityOnField(ABILITY_DAMP) && (moveEffect == EFFECT_EXPLOSION || moveEffect == EFFECT_MIND_BLOWN))
+    if (!CanSleep(targetId) && (moveEffect == EFFECT_SLEEP || moveEffect == EFFECT_YAWN
+        #if B_DARK_VOID_FAIL < GEN_7
+        || moveEffect == EFFECT_DARK_VOID
+        #endif
+    ))
     {
         typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
     }
-    // TODO aroma veil
+    if (moveEffect == EFFECT_REST && (!CanSleep(attackerId)
+        #if B_LEAF_GUARD_PREVENTS_REST >= GEN_5
+        || IsLeafGuardProtected(attackerId)
+        #endif
+    ))
+    {
+        typeEffectivenessId |= MOVE_RESULT_FAILED;
+    }
+    if (IsLeafGuardProtected(targetId) && (moveEffect == EFFECT_SLEEP || moveEffect == EFFECT_TOXIC ||
+        moveEffect == EFFECT_POISON || moveEffect == EFFECT_PARALYZE || moveEffect == EFFECT_WILL_O_WISP ||
+        moveEffect == EFFECT_YAWN
+        #if B_DARK_VOID_FAIL < GEN_7
+        || moveEffect == EFFECT_DARK_VOID
+        #endif
+    ))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
 
     split = GetBattleMoveSplit(move);
     if (split == SPLIT_STATUS)
@@ -8463,6 +8484,10 @@ u8 TypeEffectiveness(u16 move, u8 attackerId, u8 targetId)
     // TODO
 
     if (moveEffect == EFFECT_OHKO && gBattleMons[attackerId].level < gBattleMons[targetId].level)
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (IsAbilityOnField(ABILITY_DAMP) && (moveEffect == EFFECT_EXPLOSION || moveEffect == EFFECT_MIND_BLOWN))
     {
         typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
     }
