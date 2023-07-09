@@ -39,6 +39,7 @@
 #include "text.h"
 #include "trainer_hill.h"
 #include "util.h"
+#include "wild_encounter.h"
 #include "constants/abilities.h"
 #include "constants/battle_frontier.h"
 #include "constants/battle_move_effects.h"
@@ -3462,6 +3463,9 @@ void CreateBoxMon(struct BoxPokemon *boxMon, u16 species, u8 level, u8 fixedIV, 
         u32 shinyRolls = 1;
         #endif
         u32 i;
+
+        if (gIsFishingEncounter)
+            shinyRolls += 1 + 2 * gChainFishingStreak; //1 + 2 rolls per streak count. max 41
 
         if (LURE_STEP_COUNT != 0)
             shinyRolls += 1;
