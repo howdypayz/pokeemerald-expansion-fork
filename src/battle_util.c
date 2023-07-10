@@ -8481,13 +8481,17 @@ u8 TypeEffectiveness(u16 move, u8 attackerId, u8 targetId)
         return typeEffectivenessId;
     }
 
-    // TODO
-
-    if (moveEffect == EFFECT_OHKO && gBattleMons[attackerId].level < gBattleMons[targetId].level)
+    if (moveEffect == EFFECT_OHKO && (gBattleMons[attackerId].level < gBattleMons[targetId].level ||
+        targetAbility == ABILITY_STURDY))
     {
         typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
     }
     if (IsAbilityOnField(ABILITY_DAMP) && (moveEffect == EFFECT_EXPLOSION || moveEffect == EFFECT_MIND_BLOWN))
+    {
+        typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
+    }
+    if (WEATHER_HAS_EFFECT && ((moveType == TYPE_FIRE && (gBattleWeather & B_WEATHER_RAIN_PRIMAL)) ||
+        moveType == TYPE_WATER && (gBattleWeather & B_WEATHER_SUN_PRIMAL)))
     {
         typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
     }
