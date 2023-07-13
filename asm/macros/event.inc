@@ -1874,6 +1874,17 @@
 	givecustommon \species, \level, 0, 0, NUM_NATURES, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \move1, \move2, \move3, \move4, 0
 	.endm
 
+	.macro questmenu case:req, questId:req
+	.byte 0xe3
+	.byte \case
+	.byte \questId
+	.endm
+
+	.macro openquestmenu
+	questmenu 0 0
+	.endm
+
+
 @ Supplementary
 
 	.macro goto_if_unset flag:req, dest:req
