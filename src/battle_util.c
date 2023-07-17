@@ -8491,7 +8491,7 @@ u8 TypeEffectiveness(u16 move, u8 attackerId, u8 targetId)
         typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
     }
     if (WEATHER_HAS_EFFECT && ((moveType == TYPE_FIRE && (gBattleWeather & B_WEATHER_RAIN_PRIMAL)) ||
-        moveType == TYPE_WATER && (gBattleWeather & B_WEATHER_SUN_PRIMAL)))
+        (moveType == TYPE_WATER && (gBattleWeather & B_WEATHER_SUN_PRIMAL))))
     {
         typeEffectivenessId |= MOVE_RESULT_DOESNT_AFFECT_FOE;
     }
